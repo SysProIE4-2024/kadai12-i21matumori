@@ -68,7 +68,12 @@ void findRedirect(char *args[]) {               // リダイレクトの指示�
 }
 
 void redirect(int fd, char *path, int flag) {   // リダイレクト処理をする
-  //
+  close(fd);
+  int nfd = open(path,flag,0644);
+  if (nfd < 0) {
+    perror(path);
+    exit(1);
+  }
   // externalCom 関数のどこかから呼び出される
   //
   // fd   : リダイレクトするファイルディスクリプタ
@@ -86,6 +91,12 @@ void externalCom(char *args[]) {                // 外部コマンドを実行�
     exit(1);                                    //     非常事態，親を終了
   }
   if (pid==0) {                                 //   子プロセスなら
+    if (ifile != NULL) {
+      redirect(0,ifile,O_RDONLY);
+    } 
+    if (ofile != NULL) {
+      redirect(1,ofile,O_WRONLY|O_TRUNC|O_CREAT);
+    }
     execvp(args[0], args);                      //     コマンドを実行
     perror(args[0]);
     exit(1);
@@ -129,4 +140,30 @@ int main() {
   }
   return 0;
 }
+
+/* 実行結果
+Command: ls > a.txt                 <-- 出力リダイレクト
+Command: cat < a.txt                <-- ファイルの中身を確認
+Makefile
+README.md
+README.pdf
+a.txt
+myshell
+myshell.c
+Command: echo aaa bbb > a.txt        <-- 出力リダイレクト
+Command: cat a.txt    　　　　　　　　　<-- a.txtの中身を確認
+aaa bbb
+Command: echo ccc ddd > a.txt        <-- a.txtの中身を上書き
+Command: cat a.txt                   <-- a.txtの中身を確認
+ccc ddd
+Command: ls ./exists/directory > a.txt  <-- エラー出力をa.txtへ書き込んでみる
+ls: ./exists/directory: No such file or directory  <-- エラーではないためリダイレクトできない
+Command: b.txt < a.txt                  <-- 入力リダイレクト
+b.txt: No such file or directory        <-- b.txtを作っていないためエラーが出る
+Command: cat < a.txt　　　　　　　　　　　　<-- 入力リダイレクト
+ccc ddd
+Command: chmod 000 a.txt                <-- a.txtのファイルの権限を変更する
+Command: echo aaa > a.txt               <-- 出力リダイレクト
+a.txt: Permission denied　　　　　　　　   <-- 何も書き込めなくなっているためエラーが出る
+*/
 
